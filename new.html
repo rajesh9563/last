@@ -8,6 +8,7 @@
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
+    /* General Styles */
     #map {
       height: 100vh;
       width: 100%;
@@ -47,9 +48,53 @@
       left: 10px !important;
     }
 
-    @media screen and (max-width: 768px) {
+    /* Media Queries */
+    @media (max-width: 768px) {
+      .recenter-button {
+        bottom: 20px;
+        right: 20px;
+        width: 45px;
+        height: 45px;
+      }
+
       #map {
-        height: 80vh; /* Adjust height for smaller screens */
+        height: 90vh;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .recenter-button {
+        bottom: 15px;
+        right: 15px;
+        width: 40px;
+        height: 40px;
+      }
+
+      #map {
+        height: 85vh;
+      }
+
+      .leaflet-control-layers {
+        top: 5px !important;
+        left: 5px !important;
+      }
+
+      .leaflet-control-zoom {
+        top: 60px !important;
+        left: 5px !important;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .recenter-button {
+        bottom: 30px;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+      }
+
+      #map {
+        height: 100vh;
       }
     }
   </style>
@@ -87,14 +132,12 @@
         layers: [defaultLayer]
       });
 
-      // Add Layer Control
       const layerControl = L.control.layers(
         { 'Default View': defaultLayer, 'Satellite View with Labels': hybridLayer }
       ).addTo(map);
 
       map.zoomControl.setPosition('topleft');
 
-      // Geolocation logic
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
           position => {
@@ -145,7 +188,6 @@
       findNearbyPlaces(lat, lng);
     }
 
-    // Function to recenter the map
     function recenterMap() {
       if (userLat && userLng) {
         map.setView([userLat, userLng], 15);
@@ -154,22 +196,22 @@
       }
     }
 
-    // Use Overpass API to fetch nearby amenities within 1km radius
+    // Use Overpass API to fetch all types of places (like restaurants, parks, hospitals, tourist spots, etc.) within 1km radius
     function findNearbyPlaces(lat, lng) {
       const query = `
         [out:json];
         (
           node["amenity"](around:1000, ${lat}, ${lng});
-          node["shop"](around:1000, ${lat}, ${lng});
-          node["tourism"](around:1000, ${lat}, ${lng});
-          node["leisure"](around:1000, ${lat}, ${lng});
           way["amenity"](around:1000, ${lat}, ${lng});
-          way["shop"](around:1000, ${lat}, ${lng});
-          way["tourism"](around:1000, ${lat}, ${lng});
-          way["leisure"](around:1000, ${lat}, ${lng});
           relation["amenity"](around:1000, ${lat}, ${lng});
+          node["shop"](around:1000, ${lat}, ${lng});
+          way["shop"](around:1000, ${lat}, ${lng});
           relation["shop"](around:1000, ${lat}, ${lng});
+          node["tourism"](around:1000, ${lat}, ${lng});
+          way["tourism"](around:1000, ${lat}, ${lng});
           relation["tourism"](around:1000, ${lat}, ${lng});
+          node["leisure"](around:1000, ${lat}, ${lng});
+          way["leisure"](around:1000, ${lat}, ${lng});
           relation["leisure"](around:1000, ${lat}, ${lng});
         );
         out center;`;
@@ -177,20 +219,23 @@
       fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)
         .then(response => response.json())
         .then(data => {
+          if (data.elements.length === 0) {
+            alert('No places found within 1km radius.');
+          }
+
           data.elements.forEach(element => {
             const { lat, lon, tags } = element;
             const name = tags.name || 'Unnamed Place';
-            const amenityType = tags.amenity || tags.shop || tags.tourism || tags.leisure || 'Unknown';
+            const type = tags.amenity || tags.shop || tags.tourism || tags.leisure || 'Place';
 
-            // Create a marker for the nearby place
             const marker = L.marker([lat, lon])
               .addTo(map)
-              .bindPopup(`<b>${name}</b><br>${amenityType}`)
+              .bindPopup(`<b>${name}</b><br>Type: ${type}`)
               .on('mouseover', function () {
-                this.openPopup();  // Show the popup on hover
+                this.openPopup();
               })
               .on('mouseout', function () {
-                this.closePopup();  // Close the popup when the cursor moves away
+                this.closePopup();
               });
           });
         })
